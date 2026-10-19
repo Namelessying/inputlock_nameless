@@ -13,6 +13,7 @@
 
 import SwiftUI
 import AppKit
+import ServiceManagement
 
 @main
 struct lockinputApp: App {
@@ -40,8 +41,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 普通 App：出现在 Dock / Cmd-Tab 里，而不是菜单栏右上角
         NSApp.setActivationPolicy(.regular)
 
+        configureLaunchAtLoginOnFirstRun()
+
         showMainWindow()
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// 第一次运行（还没动过这个开关）默认开启「开机自启」，并注册登录项。
+    /// 之后以用户的选择为准，不再强行改回去。
+    private func configureLaunchAtLoginOnFirstRun() {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: "launchAtLogin") == nil else { return }
+        defaults.set(true, forKey: "launchAtLogin")
+
+        if #available(macOS 13.0, *) {
+            do {
+                try SMAppService.mainApp.register()
+            } catch {
+                print("Failed to register launch at login: \(error)")
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

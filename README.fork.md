@@ -4,6 +4,7 @@
 **不要菜单栏右上角的图标，改成点 App 弹一个普通窗口。**
 
 本仓库：<https://github.com/Namelessying/inputlock_nameless>
+最新版本：v1.1.2（见 [Releases](https://github.com/Namelessying/inputlock_nameless/releases)）
 
 ## 改了什么
 
@@ -13,10 +14,23 @@
 | 是否常驻菜单栏 | 是（`LSUIElement = true`） | 否（`LSUIElement = NO`，出现在 Dock / Cmd-Tab） |
 | 窗口 | 贴在菜单栏图标下方 | 屏幕中间、可拖动 / 最小化 / 关闭 |
 | 关窗口 | — | App 不退出，锁定继续生效；点 Dock 图标把窗口叫回来 |
+| 开机自启 | 默认关 | **默认开**（首次运行自动注册登录项，之后以你的开关为准） |
 | 图标 | 仓库里是空占位，显示系统默认图标 | 补了一个蓝色锁形 `AppIcon.icns` |
 
 核心逻辑一行没动：`InputMethodManager` 仍然用 Carbon TIS API 读/切输入法、监听
 「输入法切换」通知、锁定时每 0.35 秒兜底切回；开机自启、多语言、启动后恢复锁定都保留。
+
+## 关掉窗口后还在后台吗？
+
+在。`applicationShouldTerminateAfterLastWindowClosed` 返回 false，关窗只是把窗口收起来，
+App 进程和锁定逻辑都还在跑。实测：
+
+1. 关掉窗口 → 进程仍在（可见窗口数 0）
+2. 从外部把输入源强切到 ABC（`TISSelectInputSource`）→ 0.25 秒时还是 ABC
+3. 1.2 秒后再看 → 已被 App 拉回锁定输入法 `水杉输入法`，说明 0.35 秒的兜底定时器在后台照常工作
+4. 点 Dock 图标 → 窗口回到屏幕中间
+
+要真正退出用 Cmd+Q 或窗口里的 Quit 按钮。
 
 ## 构建 / 测试
 
@@ -71,7 +85,7 @@ git push origin feature/window-app
 ## 注意事项
 
 - **未公证 / ad-hoc 签名**：和原版一样，首次启动可能被 Gatekeeper 拦，右键 →「打开」放行。每次改版本都要重新放行。
-- **开机自启**：这个改动后 App 变成普通窗口 App，登录自启时会顺带弹出窗口（macOS 没有可靠的「是否为登录启动」判定，试过 `NSApplication.launchIsDefaultUserInfoKey`，在状态恢复场景下会误判，所以没做隐藏启动）。
+- **开机自启**：默认开启，首次运行会用 `SMAppService.mainApp.register()` 注册登录项；之后是否自启完全看你窗口里那个开关（关掉就 unregister，不会再被强行打开）。登录时会顺带弹出一次窗口——macOS 没有可靠的「是否为登录启动」判定，试过 `NSApplication.launchIsDefaultUserInfoKey`，在状态恢复场景下会误判，所以没做隐藏启动。
 - **Dock 图标缓存**：替换 App 后如果 Dock 还显示旧图标，执行 `killall Dock` 即可。
 - 别和「按 App 自动切输入源」的工具（如 Input Source Pro）同时开，两者会互相把输入法拉回去。
 - 窗口高度按内容自动算（`fittingSize`，带 240–520pt 的上下限），输入源多时列表区域最多 180pt、内部滚动。

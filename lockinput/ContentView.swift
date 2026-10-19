@@ -12,7 +12,7 @@ import ServiceManagement
 struct ContentView: View {
     @ObservedObject var inputManager = InputMethodManager.shared
     @ObservedObject var languageManager = LanguageManager.shared
-    @AppStorage("launchAtLogin") var launchAtLogin = false
+    @AppStorage("launchAtLogin") var launchAtLogin = true
 
     var body: some View {
         VStack(spacing: 0) {
