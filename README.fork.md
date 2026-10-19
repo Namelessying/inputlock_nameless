@@ -4,7 +4,7 @@
 **不要菜单栏右上角的图标，改成点 App 弹一个普通窗口。**
 
 本仓库：<https://github.com/Namelessying/inputlock_nameless>
-最新版本：v1.1.2（见 [Releases](https://github.com/Namelessying/inputlock_nameless/releases)）
+最新版本：v1.1.3（见 [Releases](https://github.com/Namelessying/inputlock_nameless/releases)）
 
 ## 改了什么
 
@@ -13,24 +13,29 @@
 | 入口 | 菜单栏图标（`NSStatusItem`）+ 弹出面板（`NSPopover`） | 普通窗口（`NSWindow`） |
 | 是否常驻菜单栏 | 是（`LSUIElement = true`） | 否（`LSUIElement = NO`，出现在 Dock / Cmd-Tab） |
 | 窗口 | 贴在菜单栏图标下方 | 屏幕中间、可拖动 / 最小化 / 关闭 |
-| 关窗口 | — | App 不退出，锁定继续生效；点 Dock 图标把窗口叫回来 |
+| 关窗口 | — | **从 Dock / Cmd-Tab 消失**，进程留在后台继续锁定；再打开 App 才回到 Dock 并弹窗 |
 | 开机自启 | 默认关 | **默认开**（首次运行自动注册登录项，之后以你的开关为准） |
 | 图标 | 仓库里是空占位，显示系统默认图标 | 补了一个蓝色锁形 `AppIcon.icns` |
 
 核心逻辑一行没动：`InputMethodManager` 仍然用 Carbon TIS API 读/切输入法、监听
 「输入法切换」通知、锁定时每 0.35 秒兜底切回；开机自启、多语言、启动后恢复锁定都保留。
 
-## 关掉窗口后还在后台吗？
+## 关掉窗口后会发生什么？（v1.1.3）
 
-在。`applicationShouldTerminateAfterLastWindowClosed` 返回 false，关窗只是把窗口收起来，
-App 进程和锁定逻辑都还在跑。实测：
+点左上角关闭按钮后：
 
-1. 关掉窗口 → 进程仍在（可见窗口数 0）
-2. 从外部把输入源强切到 ABC（`TISSelectInputSource`）→ 0.25 秒时还是 ABC
-3. 1.2 秒后再看 → 已被 App 拉回锁定输入法 `水杉输入法`，说明 0.35 秒的兜底定时器在后台照常工作
-4. 点 Dock 图标 → 窗口回到屏幕中间
+- 窗口关闭，`NSApp.setActivationPolicy(.accessory)` 生效 —— **Dock 和 Cmd-Tab 里都看不到它了**
+- 进程留在后台，0.35 秒的锁定定时器照常跑
+- 想再用：双击 `应用程序/LockInput`（或启动台、Spotlight 里打开），它会切回 `.regular`，Dock 图标出现、窗口弹回来
+- 想彻底退出：先把窗口叫回来，再 Cmd+Q 或点窗口里的 Quit
 
-要真正退出用 Cmd+Q 或窗口里的 Quit 按钮。
+实测（v1.1.3）：
+
+| 步骤 | 结果 |
+|---|---|
+| 点关闭按钮 | 进程仍在、Dock 列表里 lockinput 数量 **0**、`activationPolicy = accessory(1)` |
+| 关窗后强切输入源到 ABC | 1.2 秒后被拉回 `水杉输入法`，说明后台锁定没停 |
+| 从访达再次打开 | 同一个进程，Dock 图标回来、`activationPolicy = regular(0)`、窗口弹出 |
 
 ## 构建 / 测试
 

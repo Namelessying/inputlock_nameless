@@ -31,7 +31,7 @@ struct lockinputApp: App {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var window: NSWindow?
 
     var inputManager = InputMethodManager.shared
@@ -63,16 +63,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// 关掉窗口 → 从 Dock / Cmd-Tab 里消失，进程留在后台继续锁输入法
+    func windowWillClose(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         // 退出前把定时器 / 通知观察者清干净
         InputMethodManager.shared.teardown()
     }
 
-    /// 点 Dock 图标、从访达再次打开 App 时，把窗口叫回来
+    /// 再次打开 App（访达 / 启动台 / Spotlight / 点 Dock 图标）时，回到 Dock 并显示窗口
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if NSApp.activationPolicy() != .regular {
+            NSApp.setActivationPolicy(.regular)
+        }
         if !flag {
             showMainWindow()
         }
+        NSApp.activate(ignoringOtherApps: true)
         return true
     }
 
@@ -93,6 +102,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.title = (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String) ?? "LockInput"
         window.contentViewController = hosting
+        window.delegate = self
         window.isReleasedWhenClosed = false
         // 不让系统拿旧的状态恢复数据摆布窗口位置
         window.isRestorable = false
