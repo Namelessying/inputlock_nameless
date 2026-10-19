@@ -71,17 +71,21 @@ class LanguageManager: ObservableObject {
             languageCode = currentLanguage.rawValue
         }
 
+        let resolved: Bundle
         if let path = Bundle.main.path(forResource: languageCode, ofType: "lproj"),
            let bundle = Bundle(path: path) {
-            self.bundle = bundle
+            resolved = bundle
         } else if let path = Bundle.main.path(forResource: "en", ofType: "lproj"),
                   let bundle = Bundle(path: path) {
-            self.bundle = bundle
+            resolved = bundle
         } else {
-            self.bundle = .main
+            resolved = .main
         }
 
-        objectWillChange.send()
+        // 同一个 bundle 不重复赋值：@Published 自己会触发刷新，避免多余的重绘
+        if bundle !== resolved {
+            bundle = resolved
+        }
     }
 
     func localizedString(_ key: String) -> String {

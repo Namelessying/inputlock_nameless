@@ -1,7 +1,9 @@
 # LockInput 窗口版（个人 fork）
 
-基于 [bigccc/inputlock](https://github.com/bigccc/inputlock) v1.1.1 改的一个本地版本：
+基于 [bigccc/inputlock](https://github.com/bigccc/inputlock) v1.1.1 改的一个个人版本：
 **不要菜单栏右上角的图标，改成点 App 弹一个普通窗口。**
+
+本仓库：<https://github.com/Namelessying/inputlock_nameless>
 
 ## 改了什么
 
@@ -34,17 +36,36 @@ xcodebuild test -project lockinput.xcodeproj -scheme lockinput -destination 'pla
 
 回滚原版：把 `lockinput-original-1.1.1.app`（工作区根目录的备份）拖回 `/Applications/lockinput.app` 即可。
 
-## 推到自己的 GitHub fork
+## 内存泄漏排查
+
+用 `leaks` 和高频操作压测过，结果：
+
+- `leaks` 报告 **0 leaks / 0 leaked bytes**
+- 连续 30 次关窗/开窗、30 次锁定/解锁、20 次 App 切换后，RSS 稳定在 **99–104 MB**，
+  Physical footprint 稳定在 **29–30 MB**（RSS 里有大量和其他 App 共享的框架页，不是私有内存）
+- 结论：没有发现真正的泄漏；下面这些是防御式加固，避免以后改坏
+
+加固点：
+
+1. `InputMethodManager.teardown()`：统一停掉两个 `Timer` 并移除 3 组通知观察者，
+   由 `applicationWillTerminate` 调用；`deinit` 也走同一条路径
+2. `loadAvailableInputSources()` / `enforceLockedInputSource()` 包 `autoreleasepool`：
+   TIS 枚举会造一批 CF 对象，0.35 秒一次的兜底循环里避免在同一个 runloop 里堆积
+3. `LanguageManager` 不再重复赋值同一个 `Bundle`，并去掉多余的 `objectWillChange.send()`
+   （`@Published` 本身会发通知，之前等于每次切语言多刷一轮 UI）
+4. 定时器与延迟回调仍全部 `[weak self]`，不会形成 self ↔ Timer 的循环引用
+
+## 推到 GitHub
+
+仓库已经推到这里：<https://github.com/Namelessying/inputlock_nameless>
 
 ```bash
-# 网页点 Fork，或：
-gh repo fork bigccc/inputlock --clone=false
+git remote -v
+# origin    git@github.com:Namelessying/inputlock_nameless.git
+# upstream  https://github.com/bigccc/inputlock.git
 
-# 让本地指向自己的 fork
-git remote rename origin upstream
-git remote add origin git@github.com:<你的用户名>/inputlock.git
-git push -u origin main
-git push -u origin feature/window-app
+git push origin main
+git push origin feature/window-app
 ```
 
 ## 注意事项

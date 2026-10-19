@@ -44,6 +44,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        // 退出前把定时器 / 通知观察者清干净
+        InputMethodManager.shared.teardown()
+    }
+
     /// 点 Dock 图标、从访达再次打开 App 时，把窗口叫回来
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {

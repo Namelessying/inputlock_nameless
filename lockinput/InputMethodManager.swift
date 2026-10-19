@@ -38,16 +38,34 @@ class InputMethodManager: ObservableObject {
     }
 
     deinit {
+        teardown()
+    }
+
+    /// 退出前把定时器和通知观察者全部清掉。
+    /// 防御式：进程退出本会回收，但这样能保证任何持有 InputMethodManager 的场景都不留下悬挂回调。
+    func teardown() {
+        stopEnforcementTimer()
+        stopStartupRestoreTimer()
+        removeInputSourceObservers()
+    }
+
+    private func removeInputSourceObservers() {
         for observer in notificationObservers {
             DistributedNotificationCenter.default().removeObserver(observer)
             NotificationCenter.default.removeObserver(observer)
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }
-        enforcementTimer?.invalidate()
-        startupRestoreTimer?.invalidate()
+        notificationObservers.removeAll()
     }
 
     func loadAvailableInputSources() {
+        // TIS 枚举会造一批 CF 对象，放进自动释放池，避免高频切换时在同一个 runloop 里堆积
+        autoreleasepool {
+            loadAvailableInputSourcesBody()
+        }
+    }
+
+    private func loadAvailableInputSourcesBody() {
         let conditions = [
             kTISPropertyInputSourceCategory: kTISCategoryKeyboardInputSource as Any,
             kTISPropertyInputSourceIsSelectCapable: kCFBooleanTrue as Any
@@ -289,6 +307,12 @@ class InputMethodManager: ObservableObject {
     }
 
     private func enforceLockedInputSource() {
+        autoreleasepool {
+            enforceLockedInputSourceBody()
+        }
+    }
+
+    private func enforceLockedInputSourceBody() {
         guard lockState.isLocked, !isEnforcingLockedSource else { return }
         guard let lockedInputSourceID = lockState.lockedInputSourceID else { return }
         guard let currentSource = getCurrentInputSource() else { return }
